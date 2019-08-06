@@ -1,0 +1,190 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# [Clustering4Ever](https://github.com/Clustering4Ever/Clustering4Ever) by [LIPN](https://lipn.univ-paris13.fr/) [A3](https://lipn.univ-paris13.fr/accueil/equipe/a3/) team"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%%classpath add mvn\n",
+    "org.clustering4ever clustering4ever_2.11 0.9.6"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%%classpath add mvn\n",
+    "org.apache.spark spark-core_2.11 2.4.3"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Scala Gradient Ascent"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import scala.io.Source\n",
+    "import org.clustering4ever.math.distances.scalar.Euclidean\n",
+    "import org.clustering4ever.clusterizables.EasyClusterizable\n",
+    "import org.clustering4ever.vectorizables.Vectorizable\n",
+    "import org.clustering4ever.vectors.ScalarVector\n",
+    "import org.clustering4ever.clustering.scala.meanshift.{GradientAscent, GradientAscentArgs}\n",
+    "import org.clustering4ever.enums.KernelNature\n",
+    "import scala.collection.{immutable, mutable}\n",
+    "import org.clustering4ever.kernels._\n",
+    "import org.clustering4ever.shapeless.VMapping"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Download dataset Aggregation"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%%bash\n",
+    "wget -P /tmp/ http://www.clustering4ever.org/Datasets/Aggregation/aggregation.csv\n",
+    "wget -P /tmp/ http://www.clustering4ever.org/Datasets/Aggregation/labels"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Import data as ParArray[Array[Double]]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "val path = \"/tmp/aggregation.csv\"\n",
+    "val data = Source.fromFile(path).getLines.toSeq.map( x => x.split(\",\").map(_.toDouble)).toParArray.zipWithIndex\n",
+    "    .map{ case (v, id) => EasyClusterizable(id, ScalarVector(v)) }\n",
+    "val labelsPath = \"/tmp/labels\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Parameters "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "val classicEuclidean = new Euclidean(false)\n",
+    "val k = 40\n",
+    "val epsilon = 0.00001\n",
+    "val maxNumberIter = 50"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "val knnRealKernel = EstimatorArgsKnnScalar(k = 50, metric = classicEuclidean)\n",
+    "val knnEuclideanKernel = EstimatorArgsKnnEuclidean(k = 100, metric = classicEuclidean)\n",
+    "val gaussianArgs = EstimatorArgsGaussian(bandwidth = 0.001, metric = classicEuclidean)\n",
+    "val flatArgs = EstimatorArgsFlat(bandwidth = 0.75, metric = classicEuclidean, lambda = 1D)\n",
+    "val sigmoidArgs = EstimatorArgsSigmoid(a = 1D, b = 3D)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "val gaussian = EstimatorGaussian(gaussianArgs)\n",
+    "val flat = EstimatorFlat(flatArgs)\n",
+    "val sigmoid = EstimatorSigmoid(sigmoidArgs)\n",
+    "val knnReal = EstimatorKnnScalar(knnRealKernel)\n",
+    "val knnEuc = EstimatorKnnEuclidean(knnEuclideanKernel)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Run the algorithm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "val idWhereKeepNewVectorization = 9\n",
+    "\n",
+    "val t1 = System.currentTimeMillis\n",
+    "val convergedDS = GradientAscent.fit(data, epsilon, maxNumberIter, knnEuc, classicEuclidean, idWhereKeepNewVectorization)\n",
+    "val t2 = System.currentTimeMillis\n",
+    "\n",
+    "(t2 - t1) / 1000D"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Scala",
+   "language": "scala",
+   "name": "scala"
+  },
+  "language_info": {
+   "codemirror_mode": "text/x-scala",
+   "file_extension": ".scala",
+   "mimetype": "",
+   "name": "Scala",
+   "nbconverter_exporter": "",
+   "version": "2.11.12"
+  },
+  "toc": {
+   "base_numbering": 1,
+   "nav_menu": {},
+   "number_sections": false,
+   "sideBar": false,
+   "skip_h1_title": false,
+   "title_cell": "Table of Contents",
+   "title_sidebar": "Contents",
+   "toc_cell": false,
+   "toc_position": {},
+   "toc_section_display": false,
+   "toc_window_display": false
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
